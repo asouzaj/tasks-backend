@@ -22,6 +22,57 @@ pipeline {
                 
             }
         }
+        stage ('Quality Gate') {
+            steps {
+                sleep(5)
+                timeout(time: 1, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+                               
+            }
+        }
+        stage ('Deploy Backend') {
+            steps {
+                deploy adapters: [tomcat8(credentialsId: 'tomcat_login', path: '', url: 'http://localhost:8001')], contextPath: 'tasks-backend', war: 'tasks-backend.war'
+                               
+            }
+        }
+        stage ('Api Test') {
+            steps {
+                dir('api-test') {
+                    git credentialsId: 'github_login', url: 'https://github.com/asouzaj/tasks-apitest.git'
+                    bat 'mvn test'
+                }
+                                               
+            }
+        }
+        stage ('Deploy Frontend') {
+            steps {
+                dir('frontend') {
+                    git credentialsId: 'github_login', url: 'https://github.com/asouzaj/tasks-frontend.git'
+                    bat 'mvn clean package'
+                    deploy adapters: [tomcat8(credentialsId: 'tomcat_login', path: '', url: 'http://localhost:8001')], contextPath: 'tasks', war: 'tasks.war'
+                }
+                                               
+            }
+        }
+        stage ('Functional Tests') {
+            steps {
+                dir('functional-test') {
+                    git credentialsId: 'github_login', url: 'https://github.com/asouzaj/tasks-functionaltests.git'
+                    bat 'mvn test'
+                }
+                                               
+            }
+        }
+        stage ('Deploy Prod') {
+            steps {
+                bat 'docker-compose build'
+                bat 'docker-compose up -d'
+            }
+        }
+
+
     }
 }
 
